@@ -4,6 +4,9 @@ import path from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  // Reads .env from the repo root instead of frontend/, so there's a single
+  // .env for the whole project (backend + frontend) instead of two.
+  envDir: path.resolve(__dirname, '..'),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
