@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Grid Wall design tokens — see design-proposals/index.html (card 04) for the
+   reference palette. Light is the default ground; dark mirrors it with the
+   same hue family, not a naive inversion (accents/semantics are re-tuned per
+   surface so contrast holds on both grounds). Module hues encode which of
+   the three subsystems a panel belongs to; they're separate from --accent
+   (primary chrome) and from the pending/success/danger semantics. */
+:root {
+  --bg: #f1f2f5;
+  --surface: #ffffff;
+  --surface-alt: #e7e9ed;
+  --line: #dee1e7;
+
+  --ink: #171a21;
+  --ink-muted: #5b6270;
+  --ink-faint: #8b92a0;
+
+  --accent: #2a5fb0;
+  --accent-ink: #ffffff;
+
+  --success: #1f7a44;
+  --warning: #92590a;
+  --danger: #b1352a;
+
+  --mod-transactions: #2a5fb0;
+  --mod-assistant: #1e8f72;
+  --mod-rpa: #c1701d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12141a;
+    --surface: #1a1d24;
+    --surface-alt: #20242c;
+    --line: #2a2f39;
+
+    --ink: #e8eaee;
+    --ink-muted: #8e96a5;
+    --ink-faint: #5c6270;
+
+    --accent: #6c93e0;
+    --accent-ink: #0b1420;
+
+    --success: #5fbe82;
+    --warning: #e0ae55;
+    --danger: #e2726a;
+
+    --mod-transactions: #6c93e0;
+    --mod-assistant: #4fbf9e;
+    --mod-rpa: #e0954a;
+  }
+}
+
+/* The toggle stamps this explicitly and must win over the OS preference in
+   both directions. */
+:root[data-theme='dark'] {
+  --bg: #12141a;
+  --surface: #1a1d24;
+  --surface-alt: #20242c;
+  --line: #2a2f39;
+
+  --ink: #e8eaee;
+  --ink-muted: #8e96a5;
+  --ink-faint: #5c6270;
+
+  --accent: #6c93e0;
+  --accent-ink: #0b1420;
+
+  --success: #5fbe82;
+  --warning: #e0ae55;
+  --danger: #e2726a;
+
+  --mod-transactions: #6c93e0;
+  --mod-assistant: #4fbf9e;
+  --mod-rpa: #e0954a;
+}
+
+:root[data-theme='light'] {
+  --bg: #f1f2f5;
+  --surface: #ffffff;
+  --surface-alt: #e7e9ed;
+  --line: #dee1e7;
+
+  --ink: #171a21;
+  --ink-muted: #5b6270;
+  --ink-faint: #8b92a0;
+
+  --accent: #2a5fb0;
+  --accent-ink: #ffffff;
+
+  --success: #1f7a44;
+  --warning: #92590a;
+  --danger: #b1352a;
+
+  --mod-transactions: #2a5fb0;
+  --mod-assistant: #1e8f72;
+  --mod-rpa: #c1701d;
+}
+
+/* Late-bound on purpose: references resolve against whichever theme block
+   is active, so these don't need repeating per theme. */
+:root {
+  --mod-transactions-soft: color-mix(in srgb, var(--mod-transactions) 12%, transparent);
+  --mod-assistant-soft: color-mix(in srgb, var(--mod-assistant) 12%, transparent);
+  --mod-rpa-soft: color-mix(in srgb, var(--mod-rpa) 14%, transparent);
+
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, transparent);
+  --danger-wash: color-mix(in srgb, var(--danger) 5%, transparent);
+  --danger-line: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}

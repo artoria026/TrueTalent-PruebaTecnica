@@ -1,0 +1,214 @@
+{
+  "info": {
+    "name": "Transaction API - Prueba Tecnica Fullstack",
+    "description": "Coleccion Postman para el backend FastAPI: idempotencia, procesamiento async, WebSocket, asistente IA y RPA. Apunta por default a la demo en produccion (https://pruebatecnica-truetalent.duckdns.org) -- para probar contra un ./scripts/run.sh local, cambia la variable base_url/health_url a http://localhost:8090.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://pruebatecnica-truetalent.duckdns.org/api/v1" },
+    { "key": "health_url", "value": "https://pruebatecnica-truetalent.duckdns.org/health" },
+    { "key": "idempotency_key", "value": "{{$guid}}" },
+    { "key": "transaction_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{health_url}}", "host": ["{{health_url}}"] }
+      }
+    },
+    {
+      "name": "Create Transaction (idempotent, 201)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/transactions/create",
+          "host": ["{{base_url}}"],
+          "path": ["transactions", "create"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 150.5,\n  \"tipo\": \"deposito\",\n  \"idempotency_key\": \"{{idempotency_key}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create Transaction (repeat same key, 200)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/transactions/create",
+          "host": ["{{base_url}}"],
+          "path": ["transactions", "create"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 150.5,\n  \"tipo\": \"deposito\",\n  \"idempotency_key\": \"{{idempotency_key}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Process Transaction Async (202)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/transactions/async-process",
+          "host": ["{{base_url}}"],
+          "path": ["transactions", "async-process"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 75.0,\n  \"tipo\": \"retiro\",\n  \"idempotency_key\": \"{{$guid}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Transaction by ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/transactions/{{transaction_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["transactions", "{{transaction_id}}"]
+        }
+      }
+    },
+    {
+      "name": "Get Transaction (404 not found)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/transactions/00000000-0000-0000-0000-000000000000",
+          "host": ["{{base_url}}"],
+          "path": ["transactions", "00000000-0000-0000-0000-000000000000"]
+        }
+      }
+    },
+    {
+      "name": "List Transactions (paginated)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/transactions?page=1&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["transactions"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Summarize Text (Assistant)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/assistant/summarize",
+          "host": ["{{base_url}}"],
+          "path": ["assistant", "summarize"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"user-1\",\n  \"text\": \"FastAPI es un framework web moderno y rapido para construir APIs con Python 3.12 basado en type hints estandar.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Summarize Text (allow_fallback=false, estilo RPA)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/assistant/summarize",
+          "host": ["{{base_url}}"],
+          "path": ["assistant", "summarize"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"rpa-wikipedia-scraper\",\n  \"text\": \"Parrafo scrapeado de Wikipedia.\",\n  \"allow_fallback\": false\n}"
+        },
+        "description": "Si la cuota del proveedor de IA esta agotada, con allow_fallback=false la API responde 429 en vez de caer a un resumen simulado (asi es como llama el RPA)."
+      }
+    },
+    {
+      "name": "Get AI Mode (real vs forzado a simulado)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/assistant/ai-mode",
+          "host": ["{{base_url}}"],
+          "path": ["assistant", "ai-mode"]
+        }
+      }
+    },
+    {
+      "name": "Set AI Mode (forzar simulado, ahorra tokens)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/assistant/ai-mode",
+          "host": ["{{base_url}}"],
+          "path": ["assistant", "ai-mode"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"force_mock\": true\n}"
+        },
+        "description": "Modo global compartido con el dashboard y el RPA. Con force_mock=true, /assistant/summarize usa MockAIService sin intentar llamar al proveedor real -- util para no quemar cuota mientras se prueba."
+      }
+    },
+    {
+      "name": "List Assistant Logs (paginated)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/assistant/logs?page=1&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["assistant", "logs"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create RPA Extraction",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/rpa/extractions",
+          "host": ["{{base_url}}"],
+          "path": ["rpa", "extractions"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"term\": \"Python (programming language)\",\n  \"paragraph\": \"Python is a high-level, general-purpose programming language.\",\n  \"source_url\": \"https://en.wikipedia.org/wiki/Python_(programming_language)\"\n}"
+        }
+      }
+    },
+    {
+      "name": "List RPA Extractions (paginated)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/rpa/extractions?page=1&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["rpa", "extractions"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    }
+  ]
+}

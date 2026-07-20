@@ -1,0 +1,74 @@
+# Single-container image for reviewing this technical test.
+# Bundles Postgres + Redis + backend API + worker + built frontend (served
+# by FastAPI itself, no nginx) behind one port. Not meant to mirror
+# production (see docker-compose.prod.yml) — this is a "one command, any OS"
+# convenience image so a reviewer doesn't need docker-compose.
+
+# ---- Stage 1: build the frontend static bundle ----
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /frontend
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# ---- Stage 2: backend + infra + built frontend, one process tree ----
+FROM python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PGDATA=/var/lib/postgresql/data \
+    APP_ENV=local \
+    APP_DEBUG=false \
+    LOG_LEVEL=INFO \
+    API_V1_PREFIX=/api/v1 \
+    CORS_ORIGINS=http://localhost:8000 \
+    RATE_LIMIT_PER_MINUTE=60 \
+    POSTGRES_USER=app \
+    POSTGRES_PASSWORD=change_me \
+    POSTGRES_DB=transactions_db \
+    DATABASE_URL=postgresql+asyncpg://app:change_me@127.0.0.1:5432/transactions_db \
+    REDIS_URL=redis://127.0.0.1:6379/0 \
+    TRANSACTIONS_QUEUE_NAME=transactions \
+    AI_PROVIDER=mock \
+    OPENAI_API_KEY= \
+    OPENAI_MODEL=gpt-4o-mini \
+    GEMINI_API_KEY= \
+    GEMINI_MODEL=gemini-flash-latest \
+    SECRET_KEY=change_this_to_a_random_secret_in_production
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        postgresql \
+        redis-server \
+        supervisor \
+        gosu \
+        curl \
+    && rm -rf /var/lib/apt/lists/* \
+    # Debian's postgresql package doesn't put its binaries on PATH by default.
+    && ln -s /usr/lib/postgresql/*/bin/* /usr/local/bin/
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/app/ app/
+COPY backend/alembic.ini .
+COPY --from=frontend-build /frontend/dist ./static
+
+RUN mkdir -p "$PGDATA" /var/run/postgresql \
+    && chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql
+
+COPY docker/allinone/entrypoint.sh /entrypoint.sh
+COPY docker/allinone/supervisord.conf /etc/supervisor/conf.d/app.conf
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=10 --start-period=20s \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]
