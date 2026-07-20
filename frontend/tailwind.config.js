@@ -40,10 +40,15 @@ export default {
           '0%': { opacity: '0.8', transform: 'scale(0.6)' },
           '100%': { opacity: '0', transform: 'scale(1.8)' },
         },
+        'dot-pulse': {
+          '0%, 80%, 100%': { opacity: '0.35', transform: 'scale(0.75)' },
+          '40%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
         'led-ping': 'ping 2s ease-out infinite',
+        'dot-pulse': 'dot-pulse 1.1s ease-in-out infinite',
       },
     },
   },

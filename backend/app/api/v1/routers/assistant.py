@@ -22,6 +22,7 @@ from app.core.dependencies import (
     SetAiModeUseCaseDep,
     SummarizeTextUseCaseDep,
 )
+from app.domain.exceptions import AIServiceError
 from app.infrastructure.websocket.connection_manager import manager
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
@@ -38,12 +39,31 @@ async def summarize_text(
 ) -> SummarizeTextResponse:
     """Summarize the given text using the configured AI service."""
     dto = SummarizeTextDTO(**payload.model_dump())
-    result = await use_case.execute(dto)
 
     # Broadcast directly: this handler runs in the API process, which owns
     # the WebSocket connections (unlike the worker, see redis_listener.py).
+    try:
+        result = await use_case.execute(dto)
+    except AIServiceError as exc:
+        log_id = getattr(exc, "assistant_log_id", None)
+        if log_id is not None:
+            await manager.broadcast(
+                {
+                    "event": "assistant.created",
+                    "id": str(log_id),
+                    "model": getattr(exc, "assistant_model", "unknown"),
+                    "status": "failed",
+                }
+            )
+        raise
+
     await manager.broadcast(
-        {"event": "assistant.created", "id": str(result.id), "model": result.model}
+        {
+            "event": "assistant.created",
+            "id": str(result.id),
+            "model": result.model,
+            "status": "completed",
+        }
     )
 
     return SummarizeTextResponse(**result.model_dump())

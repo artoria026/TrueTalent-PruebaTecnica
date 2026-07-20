@@ -11,7 +11,11 @@ from app.domain.entities.assistant_log import (
     ASSISTANT_LOG_STATUS_FAILED,
     AssistantLog,
 )
-from app.domain.exceptions import AIQuotaExceededError, AIServiceError
+from app.domain.exceptions import (
+    AIQuotaExceededError,
+    AIServiceError,
+    AIServiceUnavailableError,
+)
 from app.domain.interfaces.ai_service import AIServicePort, AISummaryResult
 from app.domain.interfaces.assistant_log_repository import AssistantLogRepositoryPort
 
@@ -37,11 +41,11 @@ class SummarizeTextUseCase:
         """Summarize via the real service, falling back to mock on quota errors."""
         try:
             return await self._ai_service.summarize(dto.text)
-        except AIQuotaExceededError as exc:
+        except (AIQuotaExceededError, AIServiceUnavailableError) as exc:
             if not dto.allow_fallback:
                 raise
             log.warning(
-                "assistant.quota_exceeded_falling_back_to_mock",
+                "assistant.provider_failed_falling_back_to_mock",
                 user_id=dto.user_id,
                 reason=str(exc),
             )
@@ -53,7 +57,7 @@ class SummarizeTextUseCase:
 
         try:
             result = await self._resolve_summary(dto)
-        except AIServiceError:
+        except AIServiceError as exc:
             failed_entry = AssistantLog(
                 user_id=dto.user_id,
                 prompt=dto.text,
@@ -66,6 +70,10 @@ class SummarizeTextUseCase:
                 log_id=str(saved.id),
                 user_id=dto.user_id,
             )
+            # Let the router broadcast this over the WebSocket too, same as a
+            # successful summary — it doesn't have the saved log otherwise.
+            exc.assistant_log_id = saved.id
+            exc.assistant_model = saved.model
             raise
 
         log_entry = AssistantLog(

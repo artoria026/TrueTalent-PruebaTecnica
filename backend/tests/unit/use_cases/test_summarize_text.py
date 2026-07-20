@@ -7,7 +7,11 @@ import pytest
 from app.application.dtos.assistant_dto import SummarizeTextDTO
 from app.application.use_cases.summarize_text import SummarizeTextUseCase
 from app.domain.entities.assistant_log import AssistantLog
-from app.domain.exceptions import AIQuotaExceededError, AIServiceError
+from app.domain.exceptions import (
+    AIQuotaExceededError,
+    AIServiceError,
+    AIServiceUnavailableError,
+)
 from app.domain.interfaces.ai_service import AIServicePort, AISummaryResult
 from app.domain.interfaces.assistant_log_repository import AssistantLogRepositoryPort
 from app.infrastructure.ai.mock_service import MockAIService
@@ -134,6 +138,45 @@ async def test_quota_exceeded_does_not_fall_back_when_disallowed(
     saved_entry = log_repo.save.await_args.args[0]
     assert saved_entry.status == "failed"
     assert saved_entry.model == "gemini-flash-latest"
+
+
+async def test_provider_unavailable_falls_back_to_mock_when_allowed(
+    ai_service: AsyncMock, fallback_ai_service: AsyncMock, log_repo: AsyncMock
+) -> None:
+    """A 503 (provider overloaded) should trigger the same fallback as a 429."""
+    dto = SummarizeTextDTO(user_id="user-1", text="Texto", allow_fallback=True)
+    ai_service.summarize.side_effect = AIServiceUnavailableError("modelo saturado")
+    fallback_ai_service.summarize.return_value = AISummaryResult(
+        text="[mock-summary] Texto", model="mock"
+    )
+    log_repo.save.side_effect = lambda entry: entry
+
+    use_case = SummarizeTextUseCase(
+        ai_service, fallback_ai_service, log_repo, "gemini-flash-latest"
+    )
+    result = await use_case.execute(dto)
+
+    assert result.model == "mock"
+    fallback_ai_service.summarize.assert_awaited_once_with(dto.text)
+
+
+async def test_provider_unavailable_does_not_fall_back_when_disallowed(
+    ai_service: AsyncMock, fallback_ai_service: AsyncMock, log_repo: AsyncMock
+) -> None:
+    dto = SummarizeTextDTO(
+        user_id="rpa-wikipedia-scraper", text="Texto", allow_fallback=False
+    )
+    ai_service.summarize.side_effect = AIServiceUnavailableError("modelo saturado")
+    log_repo.save.side_effect = lambda entry: entry
+
+    use_case = SummarizeTextUseCase(
+        ai_service, fallback_ai_service, log_repo, "gemini-flash-latest"
+    )
+
+    with pytest.raises(AIServiceUnavailableError):
+        await use_case.execute(dto)
+
+    fallback_ai_service.summarize.assert_not_awaited()
 
 
 async def test_non_quota_error_does_not_fall_back(

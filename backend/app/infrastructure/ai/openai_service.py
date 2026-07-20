@@ -6,7 +6,11 @@ import openai
 import structlog
 from openai import AsyncOpenAI
 
-from app.domain.exceptions import AIQuotaExceededError, AIServiceError
+from app.domain.exceptions import (
+    AIQuotaExceededError,
+    AIServiceError,
+    AIServiceUnavailableError,
+)
 from app.domain.interfaces.ai_service import AIServicePort, AISummaryResult
 
 SUMMARIZATION_SYSTEM_PROMPT = (
@@ -87,6 +91,10 @@ class OpenAIService(AIServicePort):
             raise AIQuotaExceededError(
                 message, retry_after_seconds=retry_after
             ) from exc
+        except openai.InternalServerError as exc:
+            message = _provider_message(exc) or "AI provider temporarily unavailable"
+            log.error("openai.provider_unavailable", model=self._model, error=message)
+            raise AIServiceUnavailableError(message) from exc
         except Exception as exc:
             log.error("openai.summarize_failed", error=str(exc))
             raise AIServiceError("Failed to summarize text via OpenAI") from exc

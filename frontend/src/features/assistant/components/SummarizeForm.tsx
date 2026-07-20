@@ -73,13 +73,6 @@ export function SummarizeForm(): JSX.Element {
         </Button>
       </form>
 
-      {isLoading && (
-        <div className="flex items-center gap-2 rounded-lg bg-surface-alt p-3 text-sm text-ink-muted">
-          <ThinkingDots />
-          <span>Esperando respuesta del modelo…</span>
-        </div>
-      )}
-
       {!isLoading && summarize.data !== undefined && (
         <div className="flex animate-fade-in flex-col gap-2 rounded-lg bg-surface-alt p-3 text-sm text-ink">
           <ModelBadge model={summarize.data.model} />

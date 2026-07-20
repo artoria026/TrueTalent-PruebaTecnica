@@ -74,8 +74,12 @@ export default function App(): JSX.Element {
       }
       if (isAssistantCreatedEvent(data)) {
         void queryClient.invalidateQueries({ queryKey: [ASSISTANT_LOGS_QUERY_KEY] });
-        const { label } = getModelDisplay(data.model);
-        showToast(`Nuevo resumen generado · ${label}`, 'info');
+        if (data.status === 'failed') {
+          showToast(`Falló el resumen · ${data.model}`, 'error');
+        } else {
+          const { label } = getModelDisplay(data.model);
+          showToast(`Nuevo resumen generado · ${label}`, 'info');
+        }
         return;
       }
       if (isRpaExtractedEvent(data)) {

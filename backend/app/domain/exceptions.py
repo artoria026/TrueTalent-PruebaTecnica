@@ -59,6 +59,12 @@ class AIQuotaExceededError(AIServiceError):
         self.retry_after_seconds = retry_after_seconds
 
 
+class AIServiceUnavailableError(AIServiceError):
+    """Raised when the AI provider is temporarily overloaded (e.g. HTTP 503)."""
+
+    code = "AI_SERVICE_UNAVAILABLE"
+
+
 class RateLimitExceededError(DomainError):
     """Raised when a client exceeds the allowed request rate."""
 

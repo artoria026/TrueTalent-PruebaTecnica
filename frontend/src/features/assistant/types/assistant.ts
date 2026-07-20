@@ -32,6 +32,7 @@ export interface AssistantLogCreatedEvent {
   event: 'assistant.created';
   id: string;
   model: string;
+  status: 'completed' | 'failed';
 }
 
 export interface AiMode {

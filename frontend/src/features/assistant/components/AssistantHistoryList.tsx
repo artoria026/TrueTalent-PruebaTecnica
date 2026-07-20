@@ -80,8 +80,8 @@ function AssistantLogCard({ entry }: { entry: AssistantLogEntry }): JSX.Element 
       </div>
       {isFailed ? (
         <p className="text-sm italic text-ink-muted">
-          No se pudo generar el resumen (falló el proveedor de IA), pero el intento
-          quedó registrado.
+          No se pudo generar el resumen con {entry.model}, pero el intento quedó
+          registrado.
         </p>
       ) : (
         <p className="text-sm text-ink">{entry.summary}</p>
