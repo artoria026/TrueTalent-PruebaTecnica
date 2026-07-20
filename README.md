@@ -1,8 +1,12 @@
 # TrueTalent - Prueba Técnica
 
-Demo: https://pruebatecnica-truetalent.duckdns.org
-Docs (Swagger): https://pruebatecnica-truetalent.duckdns.org/docs
-Health: https://pruebatecnica-truetalent.duckdns.org/health
+## URLs
+
+- Demo: https://pruebatecnica-truetalent.duckdns.org
+
+- Docs (Swagger): https://pruebatecnica-truetalent.duckdns.org/docs
+
+- Health: https://pruebatecnica-truetalent.duckdns.org/health
 
 ## Instalación
 
