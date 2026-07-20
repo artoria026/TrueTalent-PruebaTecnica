@@ -1,0 +1,858 @@
+{
+  "info": {
+    "name": "Transaction API - Prueba Tecnica Fullstack (Produccion)",
+    "description": "Coleccion estatica apuntando a la demo en produccion (https://pruebatecnica-truetalent.duckdns.org). Solo hay que importarla, no requiere seleccionar ningun entorno ni configurar variables. Incluye casos de exito y de error (404/422/429), y scripts de test automaticos (pm.test) que validan cada respuesta y encadenan variables internas entre requests (por ejemplo, el id de una transaccion creada se reutiliza solo en 'Get Transaction by ID'). Esos scripts usan la API pm.* de Postman; al importar en Insomnia las requests funcionan igual, pero esos scripts no se ejecutan (Insomnia no los soporta). Para probar contra un entorno local en vez de produccion, usa postman_collection.local.json.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "transaction_id",
+      "value": ""
+    },
+    {
+      "key": "used_idempotency_key",
+      "value": ""
+    },
+    {
+      "key": "assistant_log_id",
+      "value": ""
+    },
+    {
+      "key": "rpa_extraction_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('status ok', function () { pm.expect(pm.response.json().status).to.eql('ok'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/health",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "protocol": "https",
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transacciones",
+      "item": [
+        {
+          "name": "Create Transaction (nueva key, 201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json();",
+                  "pm.test('trae id y status pending', function () {",
+                  "    pm.expect(body.id).to.be.a('string');",
+                  "    pm.expect(body.status).to.eql('pending');",
+                  "});",
+                  "pm.collectionVariables.set('transaction_id', body.id);",
+                  "pm.collectionVariables.set('used_idempotency_key', body.idempotency_key);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/create",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "create"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 150.5,\n  \"tipo\": \"deposito\",\n  \"idempotency_key\": \"{{$guid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Transaction (repite key, 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200 (idempotente)', function () { pm.response.to.have.status(200); });",
+                  "pm.test('devuelve el mismo id que la transaccion original', function () {",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('transaction_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/create",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "create"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 150.5,\n  \"tipo\": \"deposito\",\n  \"idempotency_key\": \"{{used_idempotency_key}}\"\n}"
+            },
+            "description": "Corre esta request DESPUES de 'Create Transaction (nueva key, 201)' -- reutiliza la misma idempotency_key que quedo guardada en la variable de coleccion used_idempotency_key, para demostrar la idempotencia real."
+          }
+        },
+        {
+          "name": "Create Transaction (monto invalido, 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/create",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "create"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": -10,\n  \"tipo\": \"deposito\",\n  \"idempotency_key\": \"{{$guid}}\"\n}"
+            },
+            "description": "monto negativo viola la validacion de Pydantic (ge=0.01)."
+          }
+        },
+        {
+          "name": "Process Transaction Async (202)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', function () { pm.response.to.have.status(202); });",
+                  "pm.test('status pending', function () { pm.expect(pm.response.json().status).to.eql('pending'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/async-process",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "async-process"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"monto\": 75.0,\n  \"tipo\": \"retiro\",\n  \"idempotency_key\": \"{{$guid}}\"\n}"
+            },
+            "description": "El worker la procesa en 2-4s (10% de probabilidad de terminar en 'failed'). Conecta al WebSocket (ver carpeta correspondiente) o vuelve a pedir el detalle para ver el cambio de estado."
+          }
+        },
+        {
+          "name": "Get Transaction by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/{{transaction_id}}",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{transaction_id}}"
+              ],
+              "protocol": "https"
+            },
+            "description": "Usa transaction_id, seteado automaticamente por el test script de 'Create Transaction (nueva key, 201)'."
+          }
+        },
+        {
+          "name": "Get Transaction (404 not found)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('codigo de error correcto', function () {",
+                  "    pm.expect(pm.response.json().error.code).to.eql('TRANSACTION_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "00000000-0000-0000-0000-000000000000"
+              ],
+              "protocol": "https"
+            }
+          }
+        },
+        {
+          "name": "List Transactions (paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('trae items/total/page/limit', function () {",
+                  "    var body = pm.response.json();",
+                  "    ['items', 'total', 'page', 'limit'].forEach(function (key) {",
+                  "        pm.expect(body).to.have.property(key);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions?page=1&limit=20",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ],
+              "protocol": "https"
+            }
+          }
+        },
+        {
+          "name": "List Transactions (filtradas por status)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/transactions?page=1&limit=20&status=pending",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ],
+              "protocol": "https"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Asistente IA",
+      "item": [
+        {
+          "name": "Summarize Text",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json();",
+                  "pm.test('trae summary y model', function () {",
+                  "    pm.expect(body.summary).to.be.a('string');",
+                  "    pm.expect(body.model).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set('assistant_log_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/summarize",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "summarize"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"text\": \"FastAPI es un framework web moderno y rapido para construir APIs con Python 3.12 basado en type hints estandar.\"\n}"
+            },
+            "description": "model en la respuesta indica que proveedor genero el resumen realmente: 'mock' (simulado), o el nombre del modelo real (ej. gemini-flash-latest) si AI_PROVIDER esta configurado y el modo simulado global esta apagado."
+          }
+        },
+        {
+          "name": "Summarize Text (texto vacio, 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/summarize",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "summarize"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-1\",\n  \"text\": \"\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Summarize Text (allow_fallback=false, estilo RPA)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 (respondio IA) o 429 (cuota agotada, sin fallback)', function () {",
+                  "    pm.expect([201, 429]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/summarize",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "summarize"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"rpa-wikipedia-scraper\",\n  \"text\": \"Parrafo scrapeado de Wikipedia.\",\n  \"allow_fallback\": false\n}"
+            },
+            "description": "Si la cuota del proveedor de IA esta agotada, con allow_fallback=false la API responde 429 en vez de caer a un resumen simulado (asi es como llama el RPA). Con cuota disponible, responde 201 normalmente."
+          }
+        },
+        {
+          "name": "Get AI Mode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('trae force_mock booleano', function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('force_mock');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/ai-mode",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "ai-mode"
+              ],
+              "protocol": "https"
+            },
+            "description": "Modo global (no por usuario): indica si /assistant/summarize esta forzado a responder siempre simulado, sin llamar al proveedor real."
+          }
+        },
+        {
+          "name": "Set AI Mode (forzar simulado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('force_mock quedo en true', function () {",
+                  "    pm.expect(pm.response.json().force_mock).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/ai-mode",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "ai-mode"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_mock\": true\n}"
+            },
+            "description": "Modo global compartido con el dashboard y el RPA. Con force_mock=true, /assistant/summarize usa el proveedor simulado sin intentar llamar al proveedor real -- util para no quemar cuota mientras se prueba."
+          }
+        },
+        {
+          "name": "Set AI Mode (volver a modo real)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('force_mock quedo en false', function () {",
+                  "    pm.expect(pm.response.json().force_mock).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/ai-mode",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "ai-mode"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force_mock\": false\n}"
+            },
+            "description": "Restaura el comportamiento por default (respeta AI_PROVIDER). Corre esto despues de probar 'Set AI Mode (forzar simulado)' para dejar el sistema como estaba."
+          }
+        },
+        {
+          "name": "List Assistant Logs (paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/assistant/logs?page=1&limit=20",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ],
+              "protocol": "https"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RPA",
+      "item": [
+        {
+          "name": "Create RPA Extraction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.collectionVariables.set('rpa_extraction_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/rpa/extractions",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rpa",
+                "extractions"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"Python (programming language)\",\n  \"paragraph\": \"Python is a high-level, general-purpose programming language.\",\n  \"source_url\": \"https://en.wikipedia.org/wiki/Python_(programming_language)\"\n}"
+            },
+            "description": "Es lo que el script del RPA llama antes de pedir el resumen -- no involucra IA en absoluto."
+          }
+        },
+        {
+          "name": "Create RPA Extraction (falta source_url, 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/rpa/extractions",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rpa",
+                "extractions"
+              ],
+              "protocol": "https"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"Python\",\n  \"paragraph\": \"Texto de prueba.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List RPA Extractions (paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://pruebatecnica-truetalent.duckdns.org/api/v1/rpa/extractions?page=1&limit=20",
+              "host": [
+                "pruebatecnica-truetalent",
+                "duckdns",
+                "org"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rpa",
+                "extractions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ],
+              "protocol": "https"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "WebSocket (referencia, no ejecutable)",
+      "description": "El endpoint de WebSocket es wss://pruebatecnica-truetalent.duckdns.org/api/v1/transactions/stream. No hay un item de request aqui a proposito: Postman/Insomnia manejan WebSocket con un tipo de conexion aparte (no vía collection.json v2.1), y ejecutarlo como request HTTP normal falla siempre. Para probarlo: en Postman usa New > WebSocket Request con esta URL, o simplemente abre el dashboard en el navegador y observa las notificaciones en tiempo real mientras corres 'Process Transaction Async', 'Summarize Text' o 'Create RPA Extraction' desde esta coleccion. Eventos que llegan por este canal: transaction.updated, assistant.created, rpa.extracted.",
+      "item": []
+    }
+  ]
+}
